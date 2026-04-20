@@ -51,7 +51,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp "build/bin/claude-msg-mgr${{ matrix.ext }}" "dist/claude-msg-mgr-${{ matrix.artifact_name }}${{ matrix.ext }}"
+          BINARY="build/bin/claude-msg-mgr${{ matrix.ext }}"
+          # macOS .app bundle
+          if [ ! -f "$BINARY" ] && [ -d "build/bin/claude-msg-mgr.app" ]; then
+            BINARY="build/bin/claude-msg-mgr.app/Contents/MacOS/claude-msg-mgr"
+          fi
+          cp "$BINARY" "dist/claude-msg-mgr-${{ matrix.artifact_name }}${{ matrix.ext }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
