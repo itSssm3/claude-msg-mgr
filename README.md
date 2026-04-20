@@ -27,6 +27,13 @@ wails build
 
 The binary will be at `build/bin/claude-msg-mgr`.
 
+> If you are using a Linux distribution that does not have webkit2gtk-4.0 (such as Ubuntu 24.04), you will need to add `-tags webkit2_41`. — [Wails Docs](https://wails.io/docs/gettingstarted/building/)
+>
+> **Solution:** Download the `linux-amd64-webkit2_41` release asset, or build manually:
+> ```bash
+> wails build -tags webkit2_41
+> ```
+
 ## Usage
 
 1. Launch the app — it automatically reads from `~/.claude/projects/`

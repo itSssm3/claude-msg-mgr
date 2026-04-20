@@ -27,6 +27,13 @@ wails build
 
 构建产物位于 `build/bin/claude-msg-mgr`。
 
+> If you are using a Linux distribution that does not have webkit2gtk-4.0 (such as Ubuntu 24.04), you will need to add `-tags webkit2_41`. — [Wails 文档](https://wails.io/docs/gettingstarted/building/)
+>
+> **解决方案：** 下载 `linux-amd64-webkit2_41` 版本，或自行编译：
+> ```bash
+> wails build -tags webkit2_41
+> ```
+
 ## 使用
 
 1. 启动应用 — 自动读取 `~/.claude/projects/`
