@@ -67,7 +67,10 @@ func (a *App) DeleteProject(name string) error {
 
 // DeleteSession removes a session JSONL file.
 func (a *App) DeleteSession(projectName, sessionID string) error {
-	path := a.mgr.GetSessionPath(projectName, sessionID)
+	path, err := a.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return err
+	}
 	return os.Remove(path)
 }
 
@@ -75,7 +78,10 @@ func (a *App) DeleteSession(projectName, sessionID string) error {
 
 // GetMessages loads and parses a JSONL file, returns displayable message thread
 func (a *App) GetMessages(projectName, sessionID string) ([]models.DisplayMessage, error) {
-	path := a.mgr.GetSessionPath(projectName, sessionID)
+	path, err := a.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	entries, err := store.ReadMessagesStream(path, []models.MessageType{
 		models.TypeUser,
 		models.TypeAssistant,
@@ -88,7 +94,10 @@ func (a *App) GetMessages(projectName, sessionID string) ([]models.DisplayMessag
 
 // GetMessageRaw returns the full JSONLEntry for editing
 func (a *App) GetMessageRaw(projectName, sessionID, messageUUID string) (*models.JSONLEntry, error) {
-	path := a.mgr.GetSessionPath(projectName, sessionID)
+	path, err := a.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	entries, err := store.ReadAllEntries(path)
 	if err != nil {
 		return nil, err
@@ -103,7 +112,10 @@ func (a *App) GetMessageRaw(projectName, sessionID, messageUUID string) (*models
 
 // UpdateMessageText edits the text content of a user or assistant message
 func (a *App) UpdateMessageText(projectName, sessionID, messageUUID, newText string) error {
-	path := a.mgr.GetSessionPath(projectName, sessionID)
+	path, err := a.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return err
+	}
 	entries, err := store.ReadAllEntries(path)
 	if err != nil {
 		return err
@@ -117,7 +129,10 @@ func (a *App) UpdateMessageText(projectName, sessionID, messageUUID, newText str
 
 // DeleteMessage removes a message and repairs parentUuid chain
 func (a *App) DeleteMessage(projectName, sessionID, messageUUID string) error {
-	path := a.mgr.GetSessionPath(projectName, sessionID)
+	path, err := a.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return err
+	}
 	entries, err := store.ReadAllEntries(path)
 	if err != nil {
 		return err
@@ -131,7 +146,10 @@ func (a *App) DeleteMessage(projectName, sessionID, messageUUID string) error {
 
 // SaveMessages writes the modified message list back to JSONL atomically
 func (a *App) SaveMessages(projectName, sessionID string, messages []models.JSONLEntry) error {
-	path := a.mgr.GetSessionPath(projectName, sessionID)
+	path, err := a.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return err
+	}
 	return store.WriteMessagesAtomic(path, messages)
 }
 
