@@ -50,12 +50,16 @@ func (e *Engine) SearchAcrossProjects(query string, caseSensitive bool, limit in
 				break
 			}
 
-			path := e.mgr.GetSessionPath(proj.Name, sessionID)
+			path, err := e.mgr.SafeSessionPath(proj.Name, sessionID)
+			if err != nil {
+				continue
+			}
 			entries, err := store.ReadAllEntries(path)
 			if err != nil {
 				continue
 			}
 
+		entryLoop:
 			for _, entry := range entries {
 				if entry.Type != models.TypeUser && entry.Type != models.TypeAssistant {
 					continue
@@ -92,7 +96,7 @@ func (e *Engine) SearchAcrossProjects(query string, caseSensitive bool, limit in
 					})
 
 					if len(results) >= limit {
-						break
+						break entryLoop
 					}
 				}
 			}
@@ -108,7 +112,10 @@ func (e *Engine) SearchInSession(projectName, sessionID, query string, caseSensi
 		limit = 100
 	}
 
-	path := e.mgr.GetSessionPath(projectName, sessionID)
+	path, err := e.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	entries, err := store.ReadAllEntries(path)
 	if err != nil {
 		return nil, err
@@ -120,6 +127,7 @@ func (e *Engine) SearchInSession(projectName, sessionID, query string, caseSensi
 		searchTerm = strings.ToLower(query)
 	}
 
+entryLoop:
 	for _, entry := range entries {
 		if entry.Type != models.TypeUser && entry.Type != models.TypeAssistant {
 			continue
@@ -155,7 +163,7 @@ func (e *Engine) SearchInSession(projectName, sessionID, query string, caseSensi
 			})
 
 			if len(results) >= limit {
-				break
+				break entryLoop
 			}
 		}
 	}
@@ -164,17 +172,20 @@ func (e *Engine) SearchInSession(projectName, sessionID, query string, caseSensi
 }
 
 // extractSnippet extracts a snippet around the search term.
+// The returned snippet always preserves the original casing of text.
 func extractSnippet(text, query string, caseSensitive bool) string {
 	const contextLen = 60
 	const maxLen = 200
 
+	// Use case-folded copies only for index detection; keep original text for output.
+	compareText := text
 	searchTerm := query
 	if !caseSensitive {
+		compareText = strings.ToLower(text)
 		searchTerm = strings.ToLower(query)
-		text = strings.ToLower(text)
 	}
 
-	idx := strings.Index(text, searchTerm)
+	idx := strings.Index(compareText, searchTerm)
 	if idx == -1 {
 		if len(text) > maxLen {
 			return text[:maxLen] + "..."

@@ -13,6 +13,17 @@ import (
 	"claude-msg-mgr/internal/store"
 )
 
+// safeJoin joins base with name and verifies the result is still under base.
+// Returns an error if the joined path escapes the base directory (path traversal).
+func safeJoin(base, name string) (string, error) {
+	joined := filepath.Join(base, name)
+	rel, err := filepath.Rel(base, joined)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("invalid path: %q escapes base directory", name)
+	}
+	return joined, nil
+}
+
 // GetClaudeProjectsDir resolves ~/.claude/projects across platforms.
 func GetClaudeProjectsDir() (string, error) {
 	home, err := os.UserHomeDir()
@@ -106,7 +117,10 @@ func (m *Manager) ListProjects() ([]models.ProjectInfo, error) {
 
 // ListSessions returns all JSONL session files in a project, sorted by modification time (newest first).
 func (m *Manager) ListSessions(projectName string) ([]string, error) {
-	projectPath := filepath.Join(m.projectsDir, projectName)
+	projectPath, err := safeJoin(m.projectsDir, projectName)
+	if err != nil {
+		return nil, err
+	}
 	entries, err := os.ReadDir(projectPath)
 	if err != nil {
 		return nil, err
@@ -144,9 +158,18 @@ func (m *Manager) ListSessions(projectName string) ([]string, error) {
 	return sessions, nil
 }
 
-// GetSessionPath returns the full path to a session JSONL file.
-func (m *Manager) GetSessionPath(projectName, sessionID string) string {
-	return filepath.Join(m.projectsDir, projectName, sessionID+".jsonl")
+// SafeSessionPath returns the full path to a session JSONL file,
+// validating that both projectName and sessionID stay within projectsDir.
+func (m *Manager) SafeSessionPath(projectName, sessionID string) (string, error) {
+	projectPath, err := safeJoin(m.projectsDir, projectName)
+	if err != nil {
+		return "", err
+	}
+	sessionPath, err := safeJoin(projectPath, sessionID+".jsonl")
+	if err != nil {
+		return "", err
+	}
+	return sessionPath, nil
 }
 
 // RenameProject renames a project folder (re-escapes new path).
@@ -156,8 +179,14 @@ func (m *Manager) RenameProject(oldName, newPath string) (string, error) {
 		return "", fmt.Errorf("invalid path: %s", newPath)
 	}
 
-	oldPath := filepath.Join(m.projectsDir, oldName)
-	newFullPath := filepath.Join(m.projectsDir, newName)
+	oldPath, err := safeJoin(m.projectsDir, oldName)
+	if err != nil {
+		return "", err
+	}
+	newFullPath, err := safeJoin(m.projectsDir, newName)
+	if err != nil {
+		return "", err
+	}
 
 	if _, err := os.Stat(newFullPath); err == nil {
 		return "", fmt.Errorf("target already exists: %s", newName)
@@ -168,7 +197,10 @@ func (m *Manager) RenameProject(oldName, newPath string) (string, error) {
 
 // DeleteProject removes a project folder and all its sessions.
 func (m *Manager) DeleteProject(name string) error {
-	path := filepath.Join(m.projectsDir, name)
+	path, err := safeJoin(m.projectsDir, name)
+	if err != nil {
+		return err
+	}
 	return os.RemoveAll(path)
 }
 
@@ -179,8 +211,14 @@ func (m *Manager) CopyProject(sourceName, targetPath string) (string, error) {
 		return "", fmt.Errorf("invalid path: %s", targetPath)
 	}
 
-	sourcePath := filepath.Join(m.projectsDir, sourceName)
-	targetFullPath := filepath.Join(m.projectsDir, targetName)
+	sourcePath, err := safeJoin(m.projectsDir, sourceName)
+	if err != nil {
+		return "", err
+	}
+	targetFullPath, err := safeJoin(m.projectsDir, targetName)
+	if err != nil {
+		return "", err
+	}
 
 	if _, err := os.Stat(targetFullPath); err == nil {
 		return "", fmt.Errorf("target already exists: %s", targetName)
