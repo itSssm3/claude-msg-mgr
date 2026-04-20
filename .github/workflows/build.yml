@@ -15,12 +15,15 @@ jobs:
           - os: ubuntu-22.04
             platform: linux/amd64
             ext: ''
+            artifact_name: linux-amd64
           - os: windows-latest
             platform: windows/amd64
             ext: '.exe'
+            artifact_name: windows-amd64
           - os: macos-latest
             platform: darwin/universal
             ext: ''
+            artifact_name: darwin-universal
 
     runs-on: ${{ matrix.os }}
     env:
@@ -48,13 +51,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          PLATFORM=$(echo "${{ matrix.platform }}" | tr '/' '-')
-          cp "build/bin/claude-msg-mgr${{ matrix.ext }}" "dist/claude-msg-mgr-${PLATFORM}${{ matrix.ext }}"
+          cp "build/bin/claude-msg-mgr${{ matrix.ext }}" "dist/claude-msg-mgr-${{ matrix.artifact_name }}${{ matrix.ext }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: claude-msg-mgr-${{ matrix.platform }}
+          name: claude-msg-mgr-${{ matrix.artifact_name }}
           path: dist/*
 
   release:
