@@ -158,12 +158,6 @@ func (m *Manager) ListSessions(projectName string) ([]string, error) {
 	return sessions, nil
 }
 
-// GetSessionPath returns the full path to a session JSONL file.
-// Returns an error string placeholder on invalid input; callers should use SafeSessionPath.
-func (m *Manager) GetSessionPath(projectName, sessionID string) string {
-	return filepath.Join(m.projectsDir, projectName, sessionID+".jsonl")
-}
-
 // SafeSessionPath returns the full path to a session JSONL file,
 // validating that both projectName and sessionID stay within projectsDir.
 func (m *Manager) SafeSessionPath(projectName, sessionID string) (string, error) {
