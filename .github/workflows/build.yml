@@ -16,14 +16,22 @@ jobs:
             platform: linux/amd64
             ext: ''
             artifact_name: linux-amd64
+            build_tags: ''
+          - os: ubuntu-24.04
+            platform: linux/amd64
+            ext: ''
+            artifact_name: linux-amd64-webkit2_41
+            build_tags: '-tags webkit2_41'
           - os: windows-latest
             platform: windows/amd64
             ext: '.exe'
             artifact_name: windows-amd64
+            build_tags: ''
           - os: macos-latest
             platform: darwin/universal
             ext: ''
             artifact_name: darwin-universal
+            build_tags: ''
 
     runs-on: ${{ matrix.os }}
     env:
@@ -38,14 +46,20 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Install Linux dependencies
+      - name: Install Linux dependencies (Ubuntu 22.04)
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
 
+      - name: Install Linux dependencies (Ubuntu 24.04)
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
       - name: Build
-        run: wails build -platform ${{ matrix.platform }} -ldflags "-s -w"
+        run: wails build -platform ${{ matrix.platform }} ${{ matrix.build_tags }} -ldflags "-s -w"
 
       - name: Rename binary
         shell: bash
