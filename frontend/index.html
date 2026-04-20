@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Message Manager</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/api.js" defer></script>
+    <script src="js/components/ProjectList.js" defer></script>
+    <script src="js/components/MessageThread.js" defer></script>
+    <script src="js/components/MessageEditor.js" defer></script>
+    <script src="js/components/SearchPanel.js" defer></script>
+    <script src="js/app.js" defer></script>
+</head>
+<body>
+    <div id="app">
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <h2>Projects</h2>
+                <button id="refresh-btn" title="Refresh">&#x21bb;</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="project-search" placeholder="Filter projects...">
+            </div>
+            <div id="project-list"></div>
+        </aside>
+        <main id="main-content">
+            <header id="toolbar">
+                <div class="toolbar-left">
+                    <select id="session-select">
+                        <option value="">Select session...</option>
+                    </select>
+                    <span id="message-count"></span>
+                </div>
+                <div class="toolbar-right">
+                    <button id="global-search-btn">&#x1F50D; Search</button>
+                    <button id="rename-project-btn">Rename</button>
+                    <button id="copy-project-btn">Copy</button>
+                    <button id="delete-session-btn" class="danger">Delete Session</button>
+                </div>
+            </header>
+            <div id="message-thread"></div>
+        </main>
+    </div>
+
+    <div id="message-editor-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Edit Message</h3>
+            <textarea id="editor-textarea"></textarea>
+            <div class="modal-actions">
+                <button id="editor-cancel">Cancel</button>
+                <button id="editor-save" class="primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="search-modal" class="modal hidden">
+        <div class="modal-content search-modal-content">
+            <div class="search-header">
+                <h3>Search Messages</h3>
+                <button id="search-close" class="close-btn">&times;</button>
+            </div>
+            <div class="search-controls">
+                <input type="text" id="search-input" placeholder="Search across all projects...">
+                <label><input type="checkbox" id="search-case"> Case sensitive</label>
+                <button id="search-run" class="primary">Search</button>
+            </div>
+            <div id="search-results"></div>
+        </div>
+    </div>
+
+    <div id="rename-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Rename Project</h3>
+            <p>Current: <span id="rename-current"></span></p>
+            <input type="text" id="rename-input" placeholder="New path (e.g. C:\\Users\\name\\project)">
+            <div class="modal-actions">
+                <button id="rename-cancel">Cancel</button>
+                <button id="rename-confirm" class="primary">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="copy-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Copy Project</h3>
+            <p>Source: <span id="copy-source"></span></p>
+            <input type="text" id="copy-input" placeholder="Target path (e.g. C:\\Users\\name\\new-project)">
+            <div class="modal-actions">
+                <button id="copy-cancel">Cancel</button>
+                <button id="copy-confirm" class="primary">Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="hidden"></div>
+</body>
+</html>

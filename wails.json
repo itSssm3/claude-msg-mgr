@@ -1,0 +1,27 @@
+{
+  "name": "claude-msg-mgr",
+  "outputfilename": "claude-msg-mgr",
+  "frontend": {
+    "dir": "./frontend",
+    "install": "",
+    "build": "",
+    "dev:command": "",
+    "dev:watcher": ""
+  },
+  "author": {
+    "name": "Claude Msg Mgr",
+    "email": ""
+  },
+  "info": {
+    "companyName": "",
+    "productName": "Claude Code Message Manager",
+    "productVersion": "1.0.0",
+    "copyright": "",
+    "comments": "Manage Claude Code conversation history"
+  },
+  "build": {
+    "wailsjsdir": "./frontend",
+    "debounceMS": 100,
+    "devurl": "http://localhost:34115"
+  }
+}
