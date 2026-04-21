@@ -168,7 +168,7 @@ class MessageThread {
 
         const viewBottom = scrollTop + viewportH;
         const firstPastViewport = this.upperBound(offsets, viewBottom);
-        const end = firstPastViewport <= n ? Math.min(n, firstPastViewport + this.BUFFER) : n;
+        const end = Math.min(n, firstPastViewport + this.BUFFER);
 
         return {
             start,
@@ -522,7 +522,7 @@ class MessageThread {
         let lo = 0;
         let hi = arr.length;
         while (lo < hi) {
-            const mid = (lo + hi) >> 1;
+            const mid = Math.floor((lo + hi) / 2);
             if (arr[mid] <= value) {
                 lo = mid + 1;
             } else {
