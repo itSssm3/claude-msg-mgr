@@ -10,6 +10,8 @@ class MessageThread {
         // Virtual scrolling state
         this.heightCache = new Map();
         this.estimatedHeights = [];
+        this.offsetsCache = null;
+        this.offsetsDirty = true;
         this.visibleRange = { start: 0, end: 0 };
         this.BUFFER = 10;
         this.ticking = false;
@@ -112,6 +114,7 @@ class MessageThread {
             this.visibleThinking.clear();
             this.expandedTools.clear();
             this.estimatedHeights = this.messages.map(m => this.estimateHeight(m));
+            this.offsetsDirty = true;
             this.container.scrollTop = 0;
             this.render();
             this.updateScrollBottomBtn();
@@ -157,33 +160,15 @@ class MessageThread {
 
         if (n === 0) return { start: 0, end: 0, topOffset: 0, totalHeight: 0, bottomOffset: 0 };
 
-        const offsets = new Array(n + 1);
-        offsets[0] = 0;
-        for (let i = 0; i < n; i++) {
-            const h = this.heightCache.get(this.messages[i].uuid) || this.estimatedHeights[i];
-            offsets[i + 1] = offsets[i] + h;
-        }
+        const offsets = this.getOffsets();
         const totalH = offsets[n];
 
-        // Find first visible message
-        let start = 0;
-        for (let i = 0; i < n; i++) {
-            if (offsets[i + 1] > scrollTop) {
-                start = i;
-                break;
-            }
-        }
-        start = Math.max(0, start - this.BUFFER);
+        const firstVisible = Math.max(0, this.upperBound(offsets, scrollTop) - 1);
+        const start = Math.max(0, firstVisible - this.BUFFER);
 
-        // Find last visible message
         const viewBottom = scrollTop + viewportH;
-        let end = n;
-        for (let i = start; i < n; i++) {
-            if (offsets[i] > viewBottom) {
-                end = Math.min(n, i + this.BUFFER);
-                break;
-            }
-        }
+        const firstPastViewport = this.upperBound(offsets, viewBottom);
+        const end = firstPastViewport <= n ? Math.min(n, firstPastViewport + this.BUFFER) : n;
 
         return {
             start,
@@ -430,17 +415,26 @@ class MessageThread {
 
     measureVisible() {
         const messages = this.container.querySelectorAll('.message');
+        let heightsChanged = false;
         messages.forEach(el => {
             const uuid = el.dataset.uuid;
             if (uuid) {
-                this.heightCache.set(uuid, el.offsetHeight);
+                const h = el.offsetHeight;
+                if (this.heightCache.get(uuid) !== h) {
+                    this.heightCache.set(uuid, h);
+                    heightsChanged = true;
+                }
             }
         });
         // Update estimated heights from cache
         for (let i = 0; i < this.messages.length; i++) {
             const cached = this.heightCache.get(this.messages[i].uuid);
-            if (cached) this.estimatedHeights[i] = cached;
+            if (cached && this.estimatedHeights[i] !== cached) {
+                this.estimatedHeights[i] = cached;
+                heightsChanged = true;
+            }
         }
+        if (heightsChanged) this.offsetsDirty = true;
         // Adjust spacers if heights changed
         this.adjustSpacers();
     }
@@ -451,12 +445,7 @@ class MessageThread {
 
         // Recalculate total offsets from cache/estimates
         const n = this.messages.length;
-        const offsets = new Array(n + 1);
-        offsets[0] = 0;
-        for (let i = 0; i < n; i++) {
-            const h = this.heightCache.get(this.messages[i].uuid) || this.estimatedHeights[i];
-            offsets[i + 1] = offsets[i] + h;
-        }
+        const offsets = this.getOffsets();
         const totalH = offsets[n];
 
         const range = this.visibleRange;
@@ -490,13 +479,7 @@ class MessageThread {
         if (idx === -1) return;
 
         // Calculate offset
-        const n = this.messages.length;
-        const offsets = new Array(n + 1);
-        offsets[0] = 0;
-        for (let i = 0; i < n; i++) {
-            const h = this.heightCache.get(this.messages[i].uuid) || this.estimatedHeights[i];
-            offsets[i + 1] = offsets[i] + h;
-        }
+        const offsets = this.getOffsets();
 
         // Scroll to the message, centering it in the viewport
         const viewportH = this.container.clientHeight || 600;
@@ -516,5 +499,36 @@ class MessageThread {
                 setTimeout(() => { msgEl.style.border = ''; }, 2000);
             }
         });
+    }
+
+    getOffsets() {
+        const n = this.messages.length;
+        if (!this.offsetsDirty && this.offsetsCache && this.offsetsCache.length === n + 1) {
+            return this.offsetsCache;
+        }
+
+        const offsets = new Array(n + 1);
+        offsets[0] = 0;
+        for (let i = 0; i < n; i++) {
+            const h = this.heightCache.get(this.messages[i].uuid) || this.estimatedHeights[i];
+            offsets[i + 1] = offsets[i] + h;
+        }
+        this.offsetsCache = offsets;
+        this.offsetsDirty = false;
+        return offsets;
+    }
+
+    upperBound(arr, value) {
+        let lo = 0;
+        let hi = arr.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (arr[mid] <= value) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return lo;
     }
 }
