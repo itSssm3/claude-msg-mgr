@@ -116,8 +116,12 @@ class MessageThread {
             this.render();
             this.updateScrollBottomBtn();
         } catch (err) {
-            this.container.innerHTML = '<div class="empty-state">Failed to load messages: ' + err.message + '</div>';
-            showToast('Failed to load messages: ' + err.message, 'error');
+            const emptyState = document.createElement('div');
+            emptyState.className = 'empty-state';
+            emptyState.textContent = 'Failed to load messages: ' + err.message;
+            this.container.innerHTML = '';
+            this.container.appendChild(emptyState);
+            showToast(emptyState.textContent, 'error');
         }
     }
 
