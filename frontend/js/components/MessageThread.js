@@ -6,15 +6,50 @@ class MessageThread {
         this.currentSession = null;
         this.onEdit = null;
         this.onDelete = null;
+
+        this.container.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+
+            const action = btn.dataset.action;
+            const uuid = btn.closest('.message')?.dataset.uuid;
+            const msg = uuid && this.messages.find(m => m.uuid === uuid);
+
+            if (action === 'edit' && msg && this.onEdit) {
+                this.onEdit(msg);
+            } else if (action === 'delete' && msg && this.onDelete) {
+                if (confirm('Delete this message?')) this.onDelete(msg);
+            } else if (action === 'expand' && msg) {
+                const body = btn.parentElement.querySelector('.message-body');
+                if (body) {
+                    const isCollapsed = body.classList.toggle('collapsed');
+                    btn.textContent = isCollapsed ? 'Expand' : 'Collapse';
+                }
+            } else if (action === 'thinking') {
+                const thinking = btn.nextElementSibling;
+                if (thinking && thinking.classList.contains('thinking-content')) {
+                    const visible = thinking.classList.toggle('visible');
+                    btn.textContent = visible ? 'Hide thinking' : 'Thinking';
+                }
+            } else if (action === 'tool-toggle') {
+                const content = btn.nextElementSibling;
+                if (content && content.classList.contains('tool-content')) {
+                    const visible = content.classList.toggle('visible');
+                    btn.classList.toggle('expanded', visible);
+                }
+            }
+        });
     }
 
     async load(projectName, sessionID) {
         this.currentProject = projectName;
         this.currentSession = sessionID;
+        this.container.innerHTML = '<div class="loading">Loading messages...</div>';
         try {
             this.messages = await API.getMessages(projectName, sessionID);
             this.render();
         } catch (err) {
+            this.container.innerHTML = '<div class="empty-state">Failed to load messages: ' + err.message + '</div>';
             showToast('Failed to load messages: ' + err.message, 'error');
         }
     }
@@ -67,19 +102,11 @@ class MessageThread {
 
             const editBtn = document.createElement('button');
             editBtn.textContent = 'Edit';
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (this.onEdit) this.onEdit(msg);
-            });
+            editBtn.dataset.action = 'edit';
 
             const delBtn = document.createElement('button');
             delBtn.textContent = 'Delete';
-            delBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (confirm('Delete this message?')) {
-                    if (this.onDelete) this.onDelete(msg);
-                }
-            });
+            delBtn.dataset.action = 'delete';
 
             actions.appendChild(editBtn);
             actions.appendChild(delBtn);
@@ -103,17 +130,7 @@ class MessageThread {
                     const expandToggle = document.createElement('div');
                     expandToggle.className = 'expand-toggle';
                     expandToggle.textContent = 'Expand';
-
-                    expandToggle.addEventListener('click', () => {
-                        const isCollapsed = body.classList.contains('collapsed');
-                        if (isCollapsed) {
-                            body.classList.remove('collapsed');
-                            expandToggle.textContent = 'Collapse';
-                        } else {
-                            body.classList.add('collapsed');
-                            expandToggle.textContent = 'Expand';
-                        }
-                    });
+                    expandToggle.dataset.action = 'expand';
 
                     el.appendChild(expandToggle);
                 }
@@ -129,15 +146,11 @@ class MessageThread {
                 const toggle = document.createElement('div');
                 toggle.className = 'thinking-toggle';
                 toggle.textContent = 'Thinking';
+                toggle.dataset.action = 'thinking';
 
                 const thinking = document.createElement('div');
                 thinking.className = 'thinking-content';
                 thinking.textContent = msg.thinking;
-
-                toggle.addEventListener('click', () => {
-                    const visible = thinking.classList.toggle('visible');
-                    toggle.textContent = visible ? 'Hide thinking' : 'Thinking';
-                });
 
                 el.appendChild(toggle);
                 el.appendChild(thinking);
@@ -197,10 +210,7 @@ class MessageThread {
                         content.appendChild(empty);
                     }
 
-                    toggle.addEventListener('click', () => {
-                        const visible = content.classList.toggle('visible');
-                        toggle.classList.toggle('expanded', visible);
-                    });
+                    toggle.dataset.action = 'tool-toggle';
 
                     toolItem.appendChild(toggle);
                     toolItem.appendChild(content);

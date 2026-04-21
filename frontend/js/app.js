@@ -5,6 +5,21 @@ let messageEditor;
 let searchPanel;
 let currentProject = null;
 
+function debounce(fn, delay) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+// Register backdrop-click-to-close for a modal
+function setupModalClose(modal, closeFn) {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeFn();
+    });
+}
+
 // DOM elements
 const projectListEl = document.getElementById('project-list');
 const projectSearchEl = document.getElementById('project-search');
@@ -42,6 +57,36 @@ const copyInput = document.getElementById('copy-input');
 const copyCancel = document.getElementById('copy-cancel');
 const copyConfirm = document.getElementById('copy-confirm');
 
+// Global keyboard shortcuts (registered immediately, outside init)
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+        if (!searchModal.classList.contains('hidden')) {
+            e.preventDefault();
+            searchModal.classList.add('hidden');
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+        } else if (!editorModal.classList.contains('hidden')) {
+            e.preventDefault();
+            editorModal.classList.add('hidden');
+        } else if (!renameModal.classList.contains('hidden')) {
+            e.preventDefault();
+            renameModal.classList.add('hidden');
+        } else if (!copyModal.classList.contains('hidden')) {
+            e.preventDefault();
+            copyModal.classList.add('hidden');
+        }
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        if (!searchModal.classList.contains('hidden')) {
+            searchInput.focus();
+        } else {
+            searchModal.classList.remove('hidden');
+            searchInput.focus();
+        }
+    }
+});
+
 // Initialize
 async function init() {
     projectList = new ProjectList(projectListEl, handleProjectSelect, handleProjectDelete);
@@ -55,9 +100,9 @@ async function init() {
     searchPanel.onResultClick = handleSearchResultClick;
 
     // Event listeners
-    projectSearchEl.addEventListener('input', (e) => {
+    projectSearchEl.addEventListener('input', debounce((e) => {
         projectList.setFilter(e.target.value);
-    });
+    }, 150));
 
     refreshBtn.addEventListener('click', () => {
         projectList.load();
@@ -84,9 +129,7 @@ async function init() {
     });
 
     renameCancel.addEventListener('click', () => renameModal.classList.add('hidden'));
-    renameModal.addEventListener('click', (e) => {
-        if (e.target === renameModal) renameModal.classList.add('hidden');
-    });
+    setupModalClose(renameModal, () => renameModal.classList.add('hidden'));
 
     renameConfirm.addEventListener('click', async () => {
         const newPath = renameInput.value.trim();
@@ -115,9 +158,7 @@ async function init() {
     });
 
     copyCancel.addEventListener('click', () => copyModal.classList.add('hidden'));
-    copyModal.addEventListener('click', (e) => {
-        if (e.target === copyModal) copyModal.classList.add('hidden');
-    });
+    setupModalClose(copyModal, () => copyModal.classList.add('hidden'));
 
     copyConfirm.addEventListener('click', async () => {
         const targetPath = copyInput.value.trim();

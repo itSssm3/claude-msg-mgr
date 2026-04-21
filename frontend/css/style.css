@@ -100,6 +100,7 @@ body {
     cursor: pointer;
     margin-bottom: 4px;
     transition: background 0.2s;
+    position: relative;
 }
 
 .project-item:hover {
@@ -109,10 +110,6 @@ body {
 .project-item.active {
     background: var(--bg-tertiary);
     border-left: 3px solid var(--accent);
-}
-
-.project-item {
-    position: relative;
 }
 
 .project-delete-btn {
@@ -251,10 +248,28 @@ button.danger:hover {
     padding: 20px;
 }
 
-.empty-state {
+.empty-state,
+.loading {
     text-align: center;
     color: var(--text-muted);
     padding: 60px 20px;
+}
+
+.loading::after {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-left: 8px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 .message {
@@ -276,14 +291,6 @@ button.danger:hover {
 .message.no-text {
     border-left-color: #444;
     opacity: 0.85;
-}
-
-.message.no-text .message-header {
-    background: rgba(0,0,0,0.08) !important;
-}
-
-.message.no-text .message-role {
-    color: #777;
 }
 
 .message-header {
@@ -315,6 +322,14 @@ button.danger:hover {
 
 .message.assistant .message-role {
     color: #b084ff;
+}
+
+.message.no-text .message-header {
+    background: rgba(0,0,0,0.08);
+}
+
+.message.no-text .message-role {
+    color: #777;
 }
 
 .message-meta {
