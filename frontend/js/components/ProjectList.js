@@ -8,10 +8,12 @@ class ProjectList {
     }
 
     async load() {
+        this.container.innerHTML = '<div class="loading">Loading projects...</div>';
         try {
             this.projects = await API.getProjects();
             this.render();
         } catch (err) {
+            this.container.innerHTML = '<div class="empty-state">Failed to load projects</div>';
             showToast('Failed to load projects: ' + err.message, 'error');
         }
     }
