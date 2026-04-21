@@ -503,7 +503,7 @@ class MessageThread {
 
     getOffsets() {
         const n = this.messages.length;
-        if (!this.offsetsDirty && this.offsetsCache && this.offsetsCache.length === n + 1) {
+        if (!this.offsetsDirty && this.offsetsCache) {
             return this.offsetsCache;
         }
 
@@ -519,6 +519,7 @@ class MessageThread {
     }
 
     upperBound(arr, value) {
+        // Returns the index of the first element strictly greater than value.
         let lo = 0;
         let hi = arr.length;
         while (lo < hi) {
