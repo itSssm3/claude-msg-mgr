@@ -10,6 +10,7 @@
     <script src="js/components/MessageThread.js" defer></script>
     <script src="js/components/MessageEditor.js" defer></script>
     <script src="js/components/SearchPanel.js" defer></script>
+    <script src="js/components/SessionList.js" defer></script>
     <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -27,9 +28,15 @@
         <main id="main-content">
             <header id="toolbar">
                 <div class="toolbar-left">
-                    <select id="session-select">
-                        <option value="">Select session...</option>
-                    </select>
+                    <div class="session-dropdown" id="session-dropdown">
+                        <button class="session-toggle" id="session-toggle">
+                            <span id="session-label">Select session...</span>
+                            <span class="session-arrow"></span>
+                        </button>
+                        <div class="session-panel hidden" id="session-panel">
+                            <div class="session-list" id="session-list"></div>
+                        </div>
+                    </div>
                     <span id="message-count"></span>
                 </div>
                 <div class="toolbar-right">
@@ -94,5 +101,16 @@
     </div>
 
     <div id="toast" class="hidden"></div>
+
+    <div id="confirm-modal" class="modal hidden">
+        <div class="modal-content confirm-content">
+            <h3 id="confirm-title">Confirm</h3>
+            <p id="confirm-message"></p>
+            <div class="modal-actions">
+                <button id="confirm-cancel">Cancel</button>
+                <button id="confirm-ok" class="danger">Confirm</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

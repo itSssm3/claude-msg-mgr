@@ -3,6 +3,7 @@ let projectList;
 let messageThread;
 let messageEditor;
 let searchPanel;
+let sessionList;
 let currentProject = null;
 
 function debounce(fn, delay) {
@@ -24,7 +25,11 @@ function setupModalClose(modal, closeFn) {
 const projectListEl = document.getElementById('project-list');
 const projectSearchEl = document.getElementById('project-search');
 const refreshBtn = document.getElementById('refresh-btn');
-const sessionSelect = document.getElementById('session-select');
+const sessionDropdown = document.getElementById('session-dropdown');
+const sessionToggle = document.getElementById('session-toggle');
+const sessionLabel = document.getElementById('session-label');
+const sessionPanel = document.getElementById('session-panel');
+const sessionListEl = document.getElementById('session-list');
 const messageCountEl = document.getElementById('message-count');
 const messageThreadEl = document.getElementById('message-thread');
 const globalSearchBtn = document.getElementById('global-search-btn');
@@ -60,6 +65,10 @@ const copyConfirm = document.getElementById('copy-confirm');
 // Global keyboard shortcuts (registered immediately, outside init)
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+        if (!document.getElementById('confirm-modal').classList.contains('hidden')) {
+            // Handled by showConfirm's own listener
+            return;
+        }
         if (!searchModal.classList.contains('hidden')) {
             e.preventDefault();
             searchModal.classList.add('hidden');
@@ -74,6 +83,9 @@ document.addEventListener('keydown', (e) => {
         } else if (!copyModal.classList.contains('hidden')) {
             e.preventDefault();
             copyModal.classList.add('hidden');
+        } else if (!sessionPanel.classList.contains('hidden')) {
+            e.preventDefault();
+            sessionPanel.classList.add('hidden');
         }
     }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
@@ -93,11 +105,13 @@ async function init() {
     messageThread = new MessageThread(messageThreadEl);
     messageEditor = new MessageEditor(editorModal, editorTextarea, editorSave, editorCancel);
     searchPanel = new SearchPanel(searchModal, searchInput, searchCase, searchRun, searchClose, searchResults);
+    sessionList = new SessionList(sessionDropdown, sessionToggle, sessionLabel, sessionPanel, sessionListEl);
 
     messageThread.onEdit = handleMessageEdit;
     messageThread.onDelete = handleMessageDelete;
     messageEditor.onSave = handleEditorSave;
     searchPanel.onResultClick = handleSearchResultClick;
+    sessionList.onSelect = handleSessionSelect;
 
     // Event listeners
     projectSearchEl.addEventListener('input', debounce((e) => {
@@ -106,12 +120,6 @@ async function init() {
 
     refreshBtn.addEventListener('click', () => {
         projectList.load();
-    });
-
-    sessionSelect.addEventListener('change', (e) => {
-        if (currentProject && e.target.value) {
-            messageThread.load(currentProject.name, e.target.value);
-        }
     });
 
     globalSearchBtn.addEventListener('click', () => {
@@ -180,18 +188,17 @@ async function init() {
             showToast('Select a project first', 'error');
             return;
         }
-        if (!sessionSelect.value) {
+        if (!sessionList.selectedId) {
             showToast('Select a session first', 'error');
             return;
         }
-        const sessionId = sessionSelect.value;
-        if (!confirm(`Delete session "${sessionId}"?\n\nThis action cannot be undone.`)) {
-            return;
-        }
+        const sessionId = sessionList.selectedId;
+        const confirmed = await showConfirm('Delete Session',
+            `Delete session "${sessionId}"?\nThis action cannot be undone.`);
+        if (!confirmed) return;
         try {
             await API.deleteSession(currentProject.name, sessionId);
             showToast('Session deleted', 'success');
-            // Refresh session list and clear thread
             await handleProjectSelect(currentProject);
             messageThreadEl.innerHTML = '<div class="empty-state">Session deleted. Select a new session.</div>';
             messageCountEl.textContent = '';
@@ -206,62 +213,53 @@ async function init() {
 
 async function handleProjectSelect(project) {
     currentProject = project;
-    sessionSelect.innerHTML = '<option value="">Select session...</option>';
     messageThreadEl.innerHTML = '<div class="empty-state">Select a session to view messages</div>';
     messageCountEl.textContent = '';
 
     try {
         const sessions = await API.getProjectSessions(project.name);
-        sessions.forEach(id => {
-            const opt = document.createElement('option');
-            opt.value = id;
-            opt.textContent = id.length > 24 ? id.substring(0, 24) + '...' : id;
-            sessionSelect.appendChild(opt);
-        });
+        sessionList.setSessions(sessions);
     } catch (err) {
         showToast('Failed to load sessions: ' + err.message, 'error');
     }
 }
 
+function handleSessionSelect(sessionId) {
+    if (currentProject) {
+        messageThread.load(currentProject.name, sessionId);
+    }
+}
+
 function handleMessageEdit(message) {
-    if (!currentProject || !sessionSelect.value) return;
-    messageEditor.open(message, currentProject.name, sessionSelect.value);
+    if (!currentProject || !sessionList.selectedId) return;
+    messageEditor.open(message, currentProject.name, sessionList.selectedId);
 }
 
 async function handleMessageDelete(message) {
-    if (!currentProject || !sessionSelect.value) return;
+    if (!currentProject || !sessionList.selectedId) return;
     try {
-        await API.deleteMessage(currentProject.name, sessionSelect.value, message.uuid);
+        await API.deleteMessage(currentProject.name, sessionList.selectedId, message.uuid);
         showToast('Message deleted', 'success');
-        await messageThread.load(currentProject.name, sessionSelect.value);
+        await messageThread.load(currentProject.name, sessionList.selectedId);
     } catch (err) {
         showToast('Delete failed: ' + err.message, 'error');
     }
 }
 
 async function handleEditorSave() {
-    if (currentProject && sessionSelect.value) {
-        await messageThread.load(currentProject.name, sessionSelect.value);
+    if (currentProject && sessionList.selectedId) {
+        await messageThread.load(currentProject.name, sessionList.selectedId);
     }
 }
 
 async function handleSearchResultClick(result) {
-    // Select the project
     const proj = projectList.getProject(result.projectName);
     if (proj) {
         await handleProjectSelect(proj);
         projectList.setActive(result.projectName);
-        sessionSelect.value = result.sessionId;
+        sessionList.setSelected(result.sessionId);
         await messageThread.load(result.projectName, result.sessionId);
-        // Scroll to message
-        requestAnimationFrame(() => {
-            const msgEl = document.querySelector(`[data-uuid="${result.messageUuid}"]`);
-            if (msgEl) {
-                msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                msgEl.style.border = '2px solid var(--accent)';
-                setTimeout(() => { msgEl.style.border = ''; }, 2000);
-            }
-        });
+        messageThread.scrollToMessage(result.messageUuid);
     }
     searchPanel.close();
 }
@@ -275,17 +273,60 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.classList.add('hidden'), 3000);
 }
 
+// Custom confirm dialog (replaces native confirm)
+function showConfirm(title, message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        const titleEl = document.getElementById('confirm-title');
+        const messageEl = document.getElementById('confirm-message');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        const okBtn = document.getElementById('confirm-ok');
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        modal.classList.remove('hidden');
+        okBtn.focus();
+
+        function cleanup(result) {
+            modal.classList.add('hidden');
+            cancelBtn.removeEventListener('click', onCancel);
+            okBtn.removeEventListener('click', onOk);
+            document.removeEventListener('keydown', onKey);
+            modal.removeEventListener('click', onBackdrop);
+            resolve(result);
+        }
+
+        function onCancel() { cleanup(false); }
+        function onOk() { cleanup(true); }
+        function onKey(e) {
+            if (e.key === 'Escape' || e.code === 'Escape' || e.keyCode === 27) {
+                e.preventDefault();
+                e.stopPropagation();
+                cleanup(false);
+            }
+        }
+        function onBackdrop(e) {
+            if (e.target === modal) cleanup(false);
+        }
+
+        cancelBtn.addEventListener('click', onCancel);
+        okBtn.addEventListener('click', onOk);
+        document.addEventListener('keydown', onKey);
+        modal.addEventListener('click', onBackdrop);
+    });
+}
+
 async function handleProjectDelete(project) {
     const name = project.displayPath || project.name;
-    if (!confirm(`Delete project "${name}"?\n\nAll ${project.sessionCount} session(s) and ${project.totalMessages} message(s) will be permanently removed.`)) {
-        return;
-    }
+    const confirmed = await showConfirm('Delete Project',
+        `Delete project "${name}"?\nAll ${project.sessionCount} session(s) and ${project.totalMessages} message(s) will be permanently removed.`);
+    if (!confirmed) return;
     try {
         await API.deleteProject(project.name);
         showToast('Project deleted', 'success');
         if (currentProject && currentProject.name === project.name) {
             currentProject = null;
-            sessionSelect.innerHTML = '<option value="">Select session...</option>';
+            sessionList.setSessions([]);
             messageThreadEl.innerHTML = '<div class="empty-state">Select a project to view messages</div>';
             messageCountEl.textContent = '';
         }
