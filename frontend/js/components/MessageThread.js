@@ -163,7 +163,7 @@ class MessageThread {
         const offsets = this.getOffsets();
         const totalH = offsets[n];
 
-        const firstVisible = Math.max(0, this.upperBound(offsets, scrollTop) - 1);
+        const firstVisible = Math.min(n - 1, Math.max(0, this.upperBound(offsets, scrollTop) - 1));
         const start = Math.max(0, firstVisible - this.BUFFER);
 
         const viewBottom = scrollTop + viewportH;
@@ -503,7 +503,7 @@ class MessageThread {
 
     getOffsets() {
         const n = this.messages.length;
-        if (!this.offsetsDirty && this.offsetsCache) {
+        if (!this.offsetsDirty && this.offsetsCache && this.offsetsCache.length === n + 1) {
             return this.offsetsCache;
         }
 
