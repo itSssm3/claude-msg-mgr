@@ -465,8 +465,12 @@ class MessageThread {
         }
 
         // Update bottom spacer
-        if (bottomOffset > 0 && spacers.length > 1) {
-            spacers[spacers.length - 1].style.height = bottomOffset + 'px';
+        if (bottomOffset > 0) {
+            if (spacers.length > 1) {
+                spacers[spacers.length - 1].style.height = bottomOffset + 'px';
+            } else if (spacers.length === 1 && topOffset === 0) {
+                spacers[0].style.height = bottomOffset + 'px';
+            }
         }
     }
 
