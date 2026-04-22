@@ -128,6 +128,22 @@ class MessageThread {
         }
     }
 
+    async refresh() {
+        if (!this.currentProject || !this.currentSession) return;
+        const savedScrollTop = this.container.scrollTop;
+        try {
+            this.messages = await API.getMessages(this.currentProject, this.currentSession);
+            this.heightCache.clear();
+            this.offsetsDirty = true;
+            this.estimatedHeights = this.messages.map(m => this.estimateHeight(m));
+            this.container.scrollTop = savedScrollTop;
+            this.render();
+            this.updateScrollBottomBtn();
+        } catch (err) {
+            // Keep current view on error
+        }
+    }
+
     estimateHeight(msg) {
         let h = 52; // header
         const hasText = msg.text && msg.text.trim().length > 0;

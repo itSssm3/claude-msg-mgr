@@ -240,7 +240,7 @@ async function handleMessageDelete(message) {
     try {
         await API.deleteMessage(currentProject.name, sessionList.selectedId, message.uuid);
         showToast('Message deleted', 'success');
-        await messageThread.load(currentProject.name, sessionList.selectedId);
+        await messageThread.refresh();
     } catch (err) {
         showToast('Delete failed: ' + err.message, 'error');
     }
