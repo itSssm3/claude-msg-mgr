@@ -127,6 +127,23 @@ func (a *App) UpdateMessageText(projectName, sessionID, messageUUID, newText str
 	return store.WriteMessagesAtomic(path, entries)
 }
 
+// DeleteMessages removes multiple messages and repairs parentUuid chain.
+func (a *App) DeleteMessages(projectName, sessionID string, messageUUIDs []string) error {
+	path, err := a.mgr.SafeSessionPath(projectName, sessionID)
+	if err != nil {
+		return err
+	}
+	entries, err := store.ReadAllEntries(path)
+	if err != nil {
+		return err
+	}
+	entries, err = store.DeleteMessagesWithRepair(entries, messageUUIDs)
+	if err != nil {
+		return err
+	}
+	return store.WriteMessagesAtomic(path, entries)
+}
+
 // DeleteMessage removes a message and repairs parentUuid chain
 func (a *App) DeleteMessage(projectName, sessionID, messageUUID string) error {
 	path, err := a.mgr.SafeSessionPath(projectName, sessionID)

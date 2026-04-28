@@ -15,11 +15,17 @@ class MessageThread {
         this.visibleRange = { start: 0, end: 0 };
         this.BUFFER = 10;
         this.ticking = false;
+        this.rendering = false;
 
         // UI toggle state (persisted across re-renders)
         this.expandedMessages = new Set();
         this.visibleThinking = new Set();
         this.expandedTools = new Map(); // uuid -> Set<toolIndex>
+
+        // Batch selection state
+        this.batchMode = false;
+        this.selectedMessages = new Set();
+        this.onBatchDelete = null;
 
         // Scroll-to-bottom button (placed in parent to avoid scrolling with content)
         this.scrollBottomBtn = document.createElement('button');
@@ -113,6 +119,7 @@ class MessageThread {
             this.expandedMessages.clear();
             this.visibleThinking.clear();
             this.expandedTools.clear();
+            this.setBatchMode(false);
             this.estimatedHeights = this.messages.map(m => this.estimateHeight(m));
             this.offsetsDirty = true;
             this.container.scrollTop = 0;
@@ -197,7 +204,10 @@ class MessageThread {
 
     render() {
         if (this.messages.length === 0) {
-            this.container.innerHTML = '<div class="empty-state">No messages in this session</div>';
+            this.container.replaceChildren();
+            this.container.appendChild(document.createElement('div')).className = 'empty-state';
+            this.container.lastChild.textContent = 'No messages in this session';
+            this.visibleRange = { start: 0, end: 0 };
             return;
         }
 
@@ -209,40 +219,62 @@ class MessageThread {
             return;
         }
 
-        this.visibleRange = range;
+        // Anchor-based rendering: pick the first visible message as anchor
+        // and preserve its position within the viewport after rebuild.
         const scrollTop = this.container.scrollTop;
+        const viewportH = this.container.clientHeight || 600;
+        const offsets = this.getOffsets();
+        let anchorIdx = -1;
+        let anchorRelTop = 0;
+        const firstVisible = Math.min(this.messages.length - 1, Math.max(0, this.upperBound(offsets, scrollTop) - 1));
+        if (firstVisible >= range.start && firstVisible < range.end) {
+            anchorIdx = firstVisible;
+            anchorRelTop = offsets[anchorIdx] - scrollTop;
+        }
 
-        this.container.innerHTML = '';
+        this.visibleRange = range;
 
-        // Top spacer
+        const fragment = document.createDocumentFragment();
+
         if (range.topOffset > 0) {
             const topSpacer = document.createElement('div');
             topSpacer.className = 'thread-spacer';
             topSpacer.style.height = range.topOffset + 'px';
-            this.container.appendChild(topSpacer);
+            fragment.appendChild(topSpacer);
         }
 
-        // Visible messages
         for (let i = range.start; i < range.end; i++) {
-            this.renderMessage(this.messages[i]);
+            this.renderMessage(this.messages[i], fragment);
         }
 
-        // Bottom spacer
         if (range.bottomOffset > 0) {
             const bottomSpacer = document.createElement('div');
             bottomSpacer.className = 'thread-spacer';
             bottomSpacer.style.height = range.bottomOffset + 'px';
-            this.container.appendChild(bottomSpacer);
+            fragment.appendChild(bottomSpacer);
         }
 
-        // Restore scroll position (browser resets it when innerHTML is cleared)
-        this.container.scrollTop = scrollTop;
+        this.rendering = true;
+        this.container.replaceChildren(fragment);
 
-        // Measure actual heights after paint
-        requestAnimationFrame(() => this.measureVisible());
+        // Re-align viewport using the anchor so the same message stays in place
+        if (anchorIdx >= 0) {
+            const newOffsets = this.getOffsets();
+            const newScrollTop = newOffsets[anchorIdx] - anchorRelTop;
+            if (this.container.scrollTop !== newScrollTop) {
+                this.container.scrollTop = Math.max(0, newScrollTop);
+            }
+        } else if (this.container.scrollTop !== scrollTop) {
+            this.container.scrollTop = scrollTop;
+        }
+
+        requestAnimationFrame(() => {
+            this.measureVisible();
+            this.rendering = false;
+        });
     }
 
-    renderMessage(msg) {
+    renderMessage(msg, parent) {
         const el = document.createElement('div');
         el.className = `message ${msg.role}`;
         el.dataset.uuid = msg.uuid;
@@ -256,6 +288,19 @@ class MessageThread {
         // Header
         const header = document.createElement('div');
         header.className = 'message-header';
+
+        if (this.batchMode) {
+            const label = document.createElement('label');
+            label.className = 'batch-checkbox';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = this.selectedMessages.has(msg.uuid);
+            cb.addEventListener('change', () => this.toggleSelection(msg.uuid));
+
+            label.appendChild(cb);
+            header.appendChild(label);
+        }
 
         const role = document.createElement('span');
         role.className = 'message-role';
@@ -404,10 +449,11 @@ class MessageThread {
             el.appendChild(toolList);
         }
 
-        this.container.appendChild(el);
+        parent.appendChild(el);
     }
 
     onScroll() {
+        if (this.rendering) return;
         const range = this.calcVisibleRange();
         if (range.start !== this.visibleRange.start || range.end !== this.visibleRange.end) {
             this.render();
@@ -435,14 +481,14 @@ class MessageThread {
         messages.forEach(el => {
             const uuid = el.dataset.uuid;
             if (uuid) {
-                const h = el.offsetHeight;
+                const marginBottom = parseFloat(getComputedStyle(el).marginBottom) || 0;
+                const h = el.offsetHeight + marginBottom;
                 if (this.heightCache.get(uuid) !== h) {
                     this.heightCache.set(uuid, h);
                     heightsChanged = true;
                 }
             }
         });
-        // Update estimated heights from cache
         for (let i = 0; i < this.messages.length; i++) {
             const cached = this.heightCache.get(this.messages[i].uuid);
             if (cached && this.estimatedHeights[i] !== cached) {
@@ -450,19 +496,20 @@ class MessageThread {
                 heightsChanged = true;
             }
         }
-        if (heightsChanged) this.offsetsDirty = true;
-        // Adjust spacers if heights changed
-        this.adjustSpacers();
+        if (heightsChanged) {
+            this.offsetsDirty = true;
+        }
     }
 
     adjustSpacers() {
         const spacers = this.container.querySelectorAll('.thread-spacer');
         if (spacers.length === 0 && this.messages.length === 0) return;
 
-        // Recalculate total offsets from cache/estimates
         const n = this.messages.length;
         const offsets = this.getOffsets();
         const totalH = offsets[n];
+        const oldTopOffset = this.visibleRange.topOffset;
+        const oldScrollTop = this.container.scrollTop;
 
         const range = this.visibleRange;
         const topOffset = offsets[range.start];
@@ -481,11 +528,18 @@ class MessageThread {
                 spacers[0].style.height = bottomOffset + 'px';
             }
         }
+
+        // Keep visible content stable: compensate scrollTop for top spacer change
+        const delta = oldTopOffset - topOffset;
+        if (delta !== 0) {
+            this.container.scrollTop = oldScrollTop - delta;
+        }
     }
 
     adjustAfterToggle() {
         requestAnimationFrame(() => {
             this.measureVisible();
+            this.adjustSpacers();
         });
     }
 
@@ -532,6 +586,91 @@ class MessageThread {
         this.offsetsCache = offsets;
         this.offsetsDirty = false;
         return offsets;
+    }
+
+    setBatchMode(enabled) {
+        const wasEnabled = this.batchMode;
+        this.batchMode = enabled;
+        if (!enabled) {
+            this.selectedMessages.clear();
+        }
+
+        // Direct DOM mutation: avoid full virtual-scroll rebuild which loses scrollTop
+        const msgs = this.container.querySelectorAll('.message');
+        msgs.forEach(el => {
+            const header = el.querySelector('.message-header');
+            if (!header) return;
+            if (enabled) {
+                if (!header.querySelector('.batch-checkbox')) {
+                    const label = document.createElement('label');
+                    label.className = 'batch-checkbox';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.checked = this.selectedMessages.has(el.dataset.uuid);
+                    cb.addEventListener('change', () => this.toggleSelection(el.dataset.uuid));
+                    label.appendChild(cb);
+                    header.insertBefore(label, header.firstChild);
+                }
+            } else {
+                const cb = header.querySelector('.batch-checkbox');
+                if (cb) cb.remove();
+            }
+        });
+
+        // Scroll-triggered render() will pick up batchMode for newly visible messages
+        if (wasEnabled !== enabled && this.onSelectionChange) {
+            this.onSelectionChange(enabled ? this.selectedMessages.size : 0);
+        }
+    }
+
+    _syncCheckbox(uuid) {
+        const el = this.container.querySelector(`.message[data-uuid="${uuid}"]`);
+        if (el) {
+            const cb = el.querySelector('.batch-checkbox input');
+            if (cb) cb.checked = this.selectedMessages.has(uuid);
+        }
+    }
+
+    toggleSelection(uuid) {
+        if (this.selectedMessages.has(uuid)) {
+            this.selectedMessages.delete(uuid);
+        } else {
+            this.selectedMessages.add(uuid);
+        }
+        this._syncCheckbox(uuid);
+        if (this.onSelectionChange) {
+            this.onSelectionChange(this.selectedMessages.size);
+        }
+    }
+
+    selectAll() {
+        for (const msg of this.messages) {
+            this.selectedMessages.add(msg.uuid);
+        }
+        this.container.querySelectorAll('.message').forEach(el => {
+            const cb = el.querySelector('.batch-checkbox input');
+            if (cb) cb.checked = true;
+        });
+        if (this.onSelectionChange) {
+            this.onSelectionChange(this.selectedMessages.size);
+        }
+    }
+
+    clearSelection() {
+        this.selectedMessages.clear();
+        this.container.querySelectorAll('.message').forEach(el => {
+            const cb = el.querySelector('.batch-checkbox input');
+            if (cb) cb.checked = false;
+        });
+        if (this.onSelectionChange) {
+            this.onSelectionChange(0);
+        }
+    }
+
+    async deleteSelected() {
+        if (this.selectedMessages.size === 0) return;
+        const uuids = Array.from(this.selectedMessages);
+        await this.onBatchDelete(uuids);
     }
 
     upperBound(arr, value) {

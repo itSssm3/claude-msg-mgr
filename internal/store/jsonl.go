@@ -155,6 +155,61 @@ func DeleteMessageWithRepair(entries []models.JSONLEntry, targetUUID string) ([]
 	return result, nil
 }
 
+// DeleteMessagesWithRepair removes multiple messages and repairs parentUuid chain.
+func DeleteMessagesWithRepair(entries []models.JSONLEntry, targetUUIDs []string) ([]models.JSONLEntry, error) {
+	toDelete := make(map[string]bool, len(targetUUIDs))
+	for _, uuid := range targetUUIDs {
+		toDelete[uuid] = true
+	}
+
+	indexByUUID := make(map[string]int)
+	childrenByParent := make(map[string][]string)
+
+	for i, e := range entries {
+		if e.UUID != "" {
+			indexByUUID[e.UUID] = i
+		}
+		if e.ParentUUID != nil && *e.ParentUUID != "" {
+			parent := *e.ParentUUID
+			childrenByParent[parent] = append(childrenByParent[parent], e.UUID)
+		}
+	}
+
+	for _, uuid := range targetUUIDs {
+		if _, ok := indexByUUID[uuid]; !ok {
+			return nil, fmt.Errorf("message %s not found", uuid)
+		}
+	}
+
+	for _, uuid := range targetUUIDs {
+		targetIdx := indexByUUID[uuid]
+		target := entries[targetIdx]
+		var targetParent *string
+		if target.ParentUUID != nil {
+			targetParent = target.ParentUUID
+		}
+
+		children := childrenByParent[uuid]
+		for _, childUUID := range children {
+			if toDelete[childUUID] {
+				continue
+			}
+			if childIdx, ok := indexByUUID[childUUID]; ok {
+				entries[childIdx].ParentUUID = targetParent
+			}
+		}
+	}
+
+	result := make([]models.JSONLEntry, 0, len(entries)-len(targetUUIDs))
+	for _, e := range entries {
+		if !toDelete[e.UUID] {
+			result = append(result, e)
+		}
+	}
+
+	return result, nil
+}
+
 // UpdateMessageText edits the text content of a user or assistant message.
 func UpdateMessageText(entries []models.JSONLEntry, targetUUID string, newText string) ([]models.JSONLEntry, error) {
 	found := false

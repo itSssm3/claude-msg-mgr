@@ -33,6 +33,12 @@ const sessionListEl = document.getElementById('session-list');
 const messageCountEl = document.getElementById('message-count');
 const messageThreadEl = document.getElementById('message-thread');
 const globalSearchBtn = document.getElementById('global-search-btn');
+const batchSelectBtn = document.getElementById('batch-select-btn');
+const batchToolbar = document.getElementById('batch-toolbar');
+const batchSelectAll = document.getElementById('batch-select-all');
+const batchCount = document.getElementById('batch-count');
+const batchDeleteBtn = document.getElementById('batch-delete-btn');
+const batchCancelBtn = document.getElementById('batch-cancel-btn');
 const renameProjectBtn = document.getElementById('rename-project-btn');
 const copyProjectBtn = document.getElementById('copy-project-btn');
 const deleteSessionBtn = document.getElementById('delete-session-btn');
@@ -86,6 +92,9 @@ document.addEventListener('keydown', (e) => {
         } else if (!sessionPanel.classList.contains('hidden')) {
             e.preventDefault();
             sessionPanel.classList.add('hidden');
+        } else if (!batchToolbar.classList.contains('hidden')) {
+            e.preventDefault();
+            batchCancelBtn.click();
         }
     }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
@@ -109,6 +118,8 @@ async function init() {
 
     messageThread.onEdit = handleMessageEdit;
     messageThread.onDelete = handleMessageDelete;
+    messageThread.onBatchDelete = handleBatchMessageDelete;
+    messageThread.onSelectionChange = updateBatchToolbar;
     messageEditor.onSave = handleEditorSave;
     searchPanel.onResultClick = handleSearchResultClick;
     sessionList.onSelect = handleSessionSelect;
@@ -183,6 +194,45 @@ async function init() {
         }
     });
 
+    batchSelectBtn.addEventListener('click', () => {
+        if (!currentProject || !sessionList.selectedId) {
+            showToast('Select a project and session first', 'error');
+            return;
+        }
+        messageThread.setBatchMode(true);
+        batchToolbar.classList.remove('hidden');
+        batchSelectBtn.classList.add('hidden');
+        updateBatchToolbar(0);
+    });
+
+    batchCancelBtn.addEventListener('click', () => {
+        messageThread.setBatchMode(false);
+        batchToolbar.classList.add('hidden');
+        batchSelectBtn.classList.remove('hidden');
+        batchSelectAll.checked = false;
+    });
+
+    batchSelectAll.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            messageThread.selectAll();
+        } else {
+            messageThread.clearSelection();
+        }
+    });
+
+    batchDeleteBtn.addEventListener('click', async () => {
+        const count = messageThread.selectedMessages.size;
+        if (count === 0) return;
+        const confirmed = await showConfirm('Delete Messages',
+            `Delete ${count} selected message${count > 1 ? 's' : ''}?\nThis action cannot be undone.`);
+        if (!confirmed) return;
+        try {
+            await messageThread.deleteSelected();
+        } catch (err) {
+            showToast('Delete failed: ' + err.message, 'error');
+        }
+    });
+
     deleteSessionBtn.addEventListener('click', async () => {
         if (!currentProject) {
             showToast('Select a project first', 'error');
@@ -213,6 +263,10 @@ async function init() {
 
 async function handleProjectSelect(project) {
     currentProject = project;
+    messageThread.setBatchMode(false);
+    batchToolbar.classList.add('hidden');
+    batchSelectBtn.classList.remove('hidden');
+    batchSelectAll.checked = false;
     messageThreadEl.innerHTML = '<div class="empty-state">Select a session to view messages</div>';
     messageCountEl.textContent = '';
 
@@ -226,6 +280,10 @@ async function handleProjectSelect(project) {
 
 function handleSessionSelect(sessionId) {
     if (currentProject) {
+        messageThread.setBatchMode(false);
+        batchToolbar.classList.add('hidden');
+        batchSelectBtn.classList.remove('hidden');
+        batchSelectAll.checked = false;
         messageThread.load(currentProject.name, sessionId);
     }
 }
@@ -244,6 +302,28 @@ async function handleMessageDelete(message) {
     } catch (err) {
         showToast('Delete failed: ' + err.message, 'error');
     }
+}
+
+async function handleBatchMessageDelete(uuids) {
+    if (!currentProject || !sessionList.selectedId) return;
+    try {
+        await API.deleteMessages(currentProject.name, sessionList.selectedId, uuids);
+        showToast(`${uuids.length} message${uuids.length > 1 ? 's' : ''} deleted`, 'success');
+        messageThread.setBatchMode(false);
+        batchToolbar.classList.add('hidden');
+        batchSelectBtn.classList.remove('hidden');
+        batchSelectAll.checked = false;
+        await messageThread.refresh();
+    } catch (err) {
+        showToast('Delete failed: ' + err.message, 'error');
+    }
+}
+
+function updateBatchToolbar(count) {
+    batchCount.textContent = `${count} selected`;
+    batchDeleteBtn.disabled = count === 0;
+    batchSelectAll.checked = count > 0 && count === messageThread.messages.length;
+    batchSelectAll.indeterminate = count > 0 && count < messageThread.messages.length;
 }
 
 async function handleEditorSave() {

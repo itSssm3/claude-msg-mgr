@@ -10,6 +10,10 @@ export function DeleteMessage(arg1, arg2, arg3) {
   return window['go']['main']['App']['DeleteMessage'](arg1, arg2, arg3);
 }
 
+export function DeleteMessages(arg1, arg2, arg3) {
+  return window['go']['main']['App']['DeleteMessages'](arg1, arg2, arg3);
+}
+
 export function DeleteProject(arg1) {
   return window['go']['main']['App']['DeleteProject'](arg1);
 }

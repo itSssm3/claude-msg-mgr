@@ -340,6 +340,48 @@ button.danger:hover {
     color: white;
 }
 
+/* Batch Toolbar */
+#batch-toolbar {
+    padding: 8px 20px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+}
+
+#batch-toolbar.hidden {
+    display: none;
+}
+
+#batch-toolbar .batch-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-secondary);
+}
+
+#batch-toolbar .batch-checkbox input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+#batch-count {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+#batch-toolbar .batch-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
 /* Message Thread */
 #message-thread {
     flex: 1;
@@ -430,9 +472,28 @@ button.danger:hover {
 .message-header {
     padding: 10px 16px;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
+    gap: 10px;
     font-size: 12px;
+}
+
+.message-header .batch-checkbox {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.message-header .batch-checkbox input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.message-meta {
+    margin-left: auto;
 }
 
 .message.user .message-header {

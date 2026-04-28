@@ -42,6 +42,10 @@ const API = {
         return await callGo(window.go.main.App.DeleteMessage, projectName, sessionID, messageUUID);
     },
 
+    async deleteMessages(projectName, sessionID, messageUUIDs) {
+        return await callGo(window.go.main.App.DeleteMessages, projectName, sessionID, messageUUIDs);
+    },
+
     async searchAcrossProjects(query, caseSensitive, limit) {
         return await callGo(window.go.main.App.SearchAcrossProjects, query, caseSensitive, limit);
     },

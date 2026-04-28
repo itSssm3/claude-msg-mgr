@@ -40,12 +40,24 @@
                     <span id="message-count"></span>
                 </div>
                 <div class="toolbar-right">
+                    <button id="batch-select-btn">Select</button>
                     <button id="global-search-btn">&#x1F50D; Search</button>
                     <button id="rename-project-btn">Rename</button>
                     <button id="copy-project-btn">Copy</button>
                     <button id="delete-session-btn" class="danger">Delete Session</button>
                 </div>
             </header>
+            <div id="batch-toolbar" class="hidden">
+                <label class="batch-checkbox">
+                    <input type="checkbox" id="batch-select-all">
+                    <span>Select all</span>
+                </label>
+                <span id="batch-count">0 selected</span>
+                <div class="batch-actions">
+                    <button id="batch-delete-btn" class="danger" disabled>Delete Selected</button>
+                    <button id="batch-cancel-btn">Cancel</button>
+                </div>
+            </div>
             <div id="message-thread"></div>
         </main>
     </div>
