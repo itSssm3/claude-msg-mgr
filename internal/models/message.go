@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -25,7 +26,7 @@ type ContentBlock struct {
 	ToolUseID string                 `json:"tool_use_id,omitempty"` // for type="tool_result"
 	Name      string                 `json:"name,omitempty"`        // for type="tool_use"
 	Input     map[string]interface{} `json:"input,omitempty"`       // for type="tool_use"
-	Content   string                 `json:"content,omitempty"`     // for type="tool_result"
+	Content   ContentBlocks          `json:"content,omitempty"`     // for type="tool_result" (string or array)
 	IsError   bool                   `json:"is_error,omitempty"`    // for type="tool_result"
 }
 
@@ -50,6 +51,27 @@ func (c *ContentBlocks) UnmarshalJSON(data []byte) error {
 	}
 	*c = blocks
 	return nil
+}
+
+// TextContent concatenates all text-type blocks into a single string.
+// Non-text blocks (images, etc.) are summarized as placeholders.
+func (c ContentBlocks) TextContent() string {
+	var parts []string
+	for _, b := range c {
+		switch b.Type {
+		case "text":
+			if b.Text != "" {
+				parts = append(parts, b.Text)
+			}
+		case "image":
+			parts = append(parts, "[image]")
+		default:
+			if b.Text != "" {
+				parts = append(parts, b.Text)
+			}
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // MessagePayload is the nested message object for user/assistant types.

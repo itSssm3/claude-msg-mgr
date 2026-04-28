@@ -34,7 +34,8 @@ func ReadMessagesStream(path string, filterTypes []models.MessageType) ([]models
 
 		var entry models.JSONLEntry
 		if err := json.Unmarshal(line, &entry); err != nil {
-			// Skip malformed lines
+			// Log and skip malformed lines
+			fmt.Printf("WARN: skipping malformed JSONL line: %v\n", err)
 			continue
 		}
 
@@ -275,7 +276,7 @@ func ToDisplayMessages(entries []models.JSONLEntry) []models.DisplayMessage {
 					Type:      block.Type,
 					Name:      block.Name,
 					Input:     block.Input,
-					Content:   block.Content,
+					Content:   block.Content.TextContent(),
 					ToolUseID: block.ToolUseID,
 					IsError:   block.IsError,
 				}
